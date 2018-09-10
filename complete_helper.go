@@ -3,6 +3,7 @@ package readline
 import (
 	"bytes"
 	"strings"
+	"unicode"
 )
 
 // Caller type for dynamic completion
@@ -108,8 +109,17 @@ func Do(p PrefixCompleterInterface, line []rune, pos int) (newLine [][]rune, off
 	return doInternal(p, line, pos, line)
 }
 
+func convertUnicodeRuneSliceToLower(rs []rune) []rune {
+	r := []rune{}
+	for _, x := range rs {
+		r = append(r, unicode.ToLower(x))
+	}
+	return r
+}
+
 func doInternal(p PrefixCompleterInterface, line []rune, pos int, origLine []rune) (newLine [][]rune, offset int) {
 	line = runes.TrimSpaceLeft(line[:pos])
+	line = convertUnicodeRuneSliceToLower(line)
 	goNext := false
 	var lineCompleter PrefixCompleterInterface
 	for _, child := range p.GetChildren() {
@@ -122,13 +132,14 @@ func doInternal(p PrefixCompleterInterface, line []rune, pos int, origLine []run
 			childNames[0] = child.GetName()
 		}
 
-		for _, childName := range childNames {
+		for _, childNameOrig := range childNames {
+			childName := convertUnicodeRuneSliceToLower(childNameOrig)
 			if len(line) >= len(childName) {
 				if runes.HasPrefix(line, childName) {
 					if len(line) == len(childName) {
 						newLine = append(newLine, []rune{' '})
 					} else {
-						newLine = append(newLine, childName)
+						newLine = append(newLine, childNameOrig)
 					}
 					offset = len(childName)
 					lineCompleter = child
@@ -136,7 +147,7 @@ func doInternal(p PrefixCompleterInterface, line []rune, pos int, origLine []run
 				}
 			} else {
 				if runes.HasPrefix(childName, line) {
-					newLine = append(newLine, childName[len(line):])
+					newLine = append(newLine, childNameOrig[len(line):])
 					offset = len(line)
 					lineCompleter = child
 				}
